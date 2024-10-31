@@ -3,7 +3,7 @@ import { Flower2, House } from "lucide-react";
 export default function Navbar() {
   return (
     <nav>
-      <div id="logo">
+      <div className="logo">
         <Flower2 />
         <p>Assign Me</p>
       </div>
