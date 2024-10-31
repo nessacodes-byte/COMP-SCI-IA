@@ -16,7 +16,7 @@ export default function AddTaskForm() {
   const [notes, setNotes] = useState("");
   const [reminder, setReminder] = useState(false);
 
-  const ReactQuill = useMemo(
+  const ReactQuill = useMemo( // from this domain, do this -> stores previous value, will not run from the start if same task = will just give previous calculated value
     () => dynamic(() => import("react-quill"), { ssr: false }),
     []
   );

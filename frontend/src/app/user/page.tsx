@@ -1,7 +1,7 @@
 "use client";
 
 import Navbar from "@/components/Navbar";
-import { useState } from "react";
+import React, { useState } from "react";
 import Image from "next/image";
 import { defaultProfilePicture } from "@/types";
 import { CheckCircle, List, XOctagon } from "lucide-react";

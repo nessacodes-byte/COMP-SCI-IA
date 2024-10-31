@@ -36,7 +36,7 @@ const TaskRow = ({
   const [taskReminder, setTaskReminder] = useState(task.reminder);
   const [taskCompleted, setTaskCompleted] = useState(task.completed);
 
-  useEffect(() => {
+  useEffect(() => { //useEffect calls a function (that may not return a value) in the first argument when anything inside the dependency array changes
     setTaskName(task.name);
     setTaskCategory(task.category);
     setTaskPriority(task.priority);

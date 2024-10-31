@@ -3,17 +3,32 @@
 import { Flower2 } from "lucide-react";
 import Image from "next/image";
 import HomePage from "../home_page.jpg";
-import { useMemo, useState } from "react";
-import validator from "validator";
+import React, { useMemo, useState, FormEvent } from "react";
+import { doSignInWithEmailAndPassword } from "@/auth";
+import { useAuth } from "@/authContext";
+import { useRouter } from "next/navigation";
 
 export default function Login() {
+  const router = useRouter();
+  const { userLoggedIn } = useAuth();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [isSigningIn, setIsSigningIn] = useState(false);
 
-  const readyToSubmit = useMemo(
-    () => validator.isEmail(email) && password,
-    [email, password]
-  );
+  if (userLoggedIn) {
+    router.push("/");
+  }
+
+  const readyToSubmit = useMemo(() => email && password, [email, password]);
+
+  const onSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!isSigningIn) {
+      setIsSigningIn(true);
+      await doSignInWithEmailAndPassword(email, password);
+    }
+  };
 
   return (
     <div className="authentication-sections">
@@ -46,7 +61,7 @@ export default function Login() {
               />
             </div>
           </div>
-          <button disabled={!readyToSubmit} type="button">
+          <button onClick={onSubmit} disabled={!readyToSubmit} type="button">
             Login
           </button>
           <p>

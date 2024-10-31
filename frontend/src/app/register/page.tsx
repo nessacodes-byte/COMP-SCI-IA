@@ -2,25 +2,42 @@
 
 import { Flower2 } from "lucide-react";
 import Image from "next/image";
-import HomePage from "../home_page.jpg";
-import { useMemo, useState } from "react";
-import validator from "validator";
+import React, { useMemo, useState, FormEvent } from "react";
+import { doCreateUserWithEmailAndPassword } from "@/auth";
+import { useAuth } from "@/authContext";
+import { useRouter } from "next/navigation";
 
 export default function Register() {
+  const router = useRouter();
+  const { userLoggedIn } = useAuth();
+
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [isRegistering, setIsRegistering] = useState(false);
+
+  if (userLoggedIn) {
+    router.push("/");
+  }
 
   const readyToSubmit = useMemo(
     () =>
       name &&
-      validator.isEmail(email) &&
+      email &&
       password &&
       confirmPassword &&
       password === confirmPassword,
     [name, email, password, confirmPassword]
   );
+
+  const onSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!isRegistering) {
+      setIsRegistering(true);
+      await doCreateUserWithEmailAndPassword(name, email, password);
+    }
+  };
 
   return (
     <div className="authentication-sections">
@@ -82,7 +99,7 @@ export default function Register() {
         </div>
       </div>
       <div className="authentication-section-2">
-        <Image src={HomePage} alt="Home Page Preview" />
+        <Image src={require("../home_page.jpg")} alt="Home Page Preview" />
       </div>
     </div>
   );

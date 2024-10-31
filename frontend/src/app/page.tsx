@@ -1,20 +1,27 @@
 "use client";
 
-import AddTaskForm from "@/components/AddTaskForm";
-import Navbar from "@/components/Navbar";
-import Sheet from "@/components/Sheet";
-import TaskList from "@/components/TaskList";
-import { Task } from "@/types";
+import AddTaskForm from "../components/AddTaskForm";
+import Navbar from "../components/Navbar";
+import Sheet from "../components/Sheet";
+import TaskList from "../components/TaskList";
+import { Task } from "../types";
 import { Calendar, Download, Filter, List, Plus, Search } from "lucide-react";
-import { useState } from "react";
+import React, { useState } from "react";
+import {
+  addDoc,
+  collection,
+  doc,
+  onSnapshot,
+  updateDoc,
+} from "firebase/firestore";
 
 export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");
-  const [isList, setIsList] = useState(true);
+  const [isList, setIsList] = useState(true); //use state is a function -> calls setSearchQuery to re-render, if there's change in searchQuery
 
   const dummyData: Task[] = [
     {
-      id: 0,
+      id: "0",
       name: "Task Task Task Task Task Task Task Task Task Task",
       category: "Academic",
       priority: "High",
