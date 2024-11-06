@@ -13,6 +13,7 @@ import { FormEvent, useMemo, useState } from "react";
 import ReactQuill from "react-quill";
 import dynamic from "next/dynamic";
 import "react-quill/dist/quill.snow.css";
+import { useAuth } from "../authContext";
 
 export default function EditTaskForm({
   task,
@@ -21,6 +22,7 @@ export default function EditTaskForm({
   task: Task;
   onUpdate: (task: Task) => void;
 }) {
+  const { currentUser, setCurrentUser } = useAuth();
   const [title, setTitle] = useState(task.name);
   const [deadline, setDeadline] = useState<Date>(task.deadline);
   const [category, setCategory] = useState<TaskCategory>(task.category);
@@ -40,9 +42,12 @@ export default function EditTaskForm({
     [title, deadline, priority, category]
   );
 
-  const handleOnSubmit = (e: FormEvent) => {
+  const handleOnSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    onUpdate({
+
+    if (!currentUser) return;
+
+    const updatedTask = {
       id: task.id,
       name: title,
       deadline,
@@ -52,8 +57,32 @@ export default function EditTaskForm({
       notes,
       reminder,
       completed,
+    };
+
+    onUpdate(updatedTask);
+
+    const userRef = await doc(db, "users", currentUser.id);
+    const userSnap = await getDoc(userRef);
+
+    if (!userSnap.exists()) return;
+
+    const currentTasks = userSnap.data().tasks || [];
+
+    const taskIndex = currentTasks.findIndex(
+      (task) => task.id === updatedTask.id
+    );
+    const updatedTasks = [...currentTasks];
+    updatedTasks[taskIndex] = updatedTask;
+
+    await updateDoc(userRef, {
+      tasks: updatedTasks,
     });
-    // TODO: EDIT TASKS TO SERVER
+
+    const updatedUser = {
+      ...currentUser,
+      tasks: updatedTasks,
+    };
+    setCurrentUser(updatedUser);
   };
 
   return (
@@ -73,7 +102,7 @@ export default function EditTaskForm({
         <input
           type="datetime-local"
           value={formatDate(deadline)}
-          onChange={(e) => setDeadline(new Date(e.target.value))}
+          onChange={(e) => setDeadline(new Date(e.target.value).toISOString())}
         />
       </div>
       <div className="task-form-priority">

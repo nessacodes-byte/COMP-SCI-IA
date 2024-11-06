@@ -19,10 +19,6 @@ const Sheet = ({ children }: { children: ReactElement[] }) => {
 
   const [open, setOpen] = useState(false);
 
-  useEffect(() => {
-    console.log("open", open);
-  }, [open]);
-
   return (
     <>
       <button className="sheet-button" onClick={() => setOpen((prev) => !prev)}>

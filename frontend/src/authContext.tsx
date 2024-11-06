@@ -1,65 +1,71 @@
-import React, {
+"use client";
+
+import {
+  createContext,
   useContext,
   useState,
   useEffect,
   ReactNode,
-  Dispatch,
-  SetStateAction,
 } from "react";
-import { auth } from "./firebase";
-import { onAuthStateChanged } from "firebase/auth";
-import { AuthContextType, User } from "./types";
+import { User, AuthContextType } from "./types";
+import { doc, updateDoc } from "firebase/firestore";
+import { db } from "./firebase";
 
-const AuthContext = React.createContext<AuthContextType>({
-  userLoggedIn: false,
-  isEmailUser: false,
+const AuthContext = createContext<AuthContextType>({
   currentUser: null,
-  setCurrentUser: () => null,
+  userLoggedIn: false,
+  isLoading: true,
+  setCurrentUser: () => {},
+  logout: () => {},
 });
-
-export function useAuth() {
-  return useContext(AuthContext);
-}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [userLoggedIn, setUserLoggedIn] = useState(false);
-  const [isEmailUser, setIsEmailUser] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, initializeUser);
-    return unsubscribe;
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      setCurrentUser(JSON.parse(storedUser));
+    }
+    setIsLoading(false);
   }, []);
 
-  async function initializeUser(user: any) {
-    if (user) {
-      setCurrentUser({ ...user });
+  const handleSetUser = (newUser: User | null) => {
+    const changeUserInDb = async (user: User) => {
+      // const userRef = await doc(db, "users", user.id);
+      // await updateDoc(userRef, user);
+      // TODO: Fix
+      console.log(user);
+    };
 
-      // check if provider is email and password login
-      const isEmail = user.providerData.some(
-        (provider: { providerId: string }) => provider.providerId === "password"
-      );
-      setIsEmailUser(isEmail);
-      setUserLoggedIn(true);
+    if (newUser) {
+      localStorage.setItem("user", JSON.stringify(newUser));
+      changeUserInDb(newUser);
     } else {
-      setCurrentUser(null);
-      setUserLoggedIn(false);
+      localStorage.removeItem("user");
     }
+    setCurrentUser(newUser);
+  };
 
-    setLoading(false);
-  }
-
-  const value: AuthContextType = {
-    userLoggedIn,
-    isEmailUser,
-    currentUser,
-    setCurrentUser,
+  const logout = () => {
+    handleSetUser(null);
+    localStorage.removeItem("user");
   };
 
   return (
-    <AuthContext.Provider value={value}>
-      {!loading && children}
+    <AuthContext.Provider
+      value={{
+        currentUser,
+        userLoggedIn: !!currentUser,
+        setCurrentUser: handleSetUser,
+        isLoading,
+        logout,
+      }}
+    >
+      {children}
     </AuthContext.Provider>
   );
 }
+
+export const useAuth = () => useContext(AuthContext);

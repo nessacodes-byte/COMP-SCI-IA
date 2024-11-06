@@ -6,6 +6,7 @@ import {
   Task,
   TaskCategory,
   TaskPriority,
+  FirestoreTask,
 } from "@/types";
 import { format } from "date-fns/format";
 import {
@@ -17,6 +18,9 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import Sheet from "./Sheet";
 import EditTaskForm from "./EditTaskForm";
+import { useAuth } from "../authContext";
+import { doc, updateDoc, arrayRemove } from "firebase/firestore";
+import { db } from "../firebase";
 
 const TaskRow = ({
   task,
@@ -33,10 +37,11 @@ const TaskRow = ({
   const [taskDeadline, setTaskDeadline] = useState(task.deadline);
   const [taskDescription, setTaskDescription] = useState(task.description);
   const [taskNotes, setTaskNotes] = useState(task.notes);
-  const [taskReminder, setTaskReminder] = useState(task.reminder);
   const [taskCompleted, setTaskCompleted] = useState(task.completed);
+  const [taskReminder, setTaskReminder] = useState(task.reminder);
 
-  useEffect(() => { //useEffect calls a function (that may not return a value) in the first argument when anything inside the dependency array changes
+  useEffect(() => {
+    //useEffect calltask.deadline(that may not return a value) in the first argument when anything inside the dependency array changes
     setTaskName(task.name);
     setTaskCategory(task.category);
     setTaskPriority(task.priority);
@@ -76,7 +81,20 @@ const TaskRow = ({
             <p className="task-row-name">{taskName}</p>
           </Sheet.Button>
           <Sheet.Body>
-            <EditTaskForm task={task} onUpdate={onUpdate} />
+            <EditTaskForm
+              task={{
+                id: task.id,
+                name: taskName,
+                deadline: taskDeadline,
+                category: taskCategory,
+                priority: taskPriority,
+                description: taskDescription,
+                notes: taskNotes,
+                reminder: taskReminder,
+                completed: taskCompleted,
+              }}
+              onUpdate={onUpdate}
+            />
           </Sheet.Body>
         </Sheet>
       </td>
@@ -128,38 +146,44 @@ const TaskRow = ({
 
 const ITEMS_PER_PAGE = 10;
 
-export default function TaskList({ tasks }: { tasks: Task[] }) {
-  const [allTasks, setAllTasks] = useState(tasks);
+export default function TaskList({
+  tasks,
+  setTasks,
+}: {
+  tasks: Task[];
+  setTasks: (tasks: Task[]) => void;
+}) {
+  const { currentUser, setCurrentUser } = useAuth();
   const [pageNumber, setPageNumber] = useState(0);
 
   const tasksChunks = useMemo(() => {
     const chunks = [];
-    for (let i = 0; i < allTasks.length; i += ITEMS_PER_PAGE) {
-      const chunk = allTasks.slice(i, i + ITEMS_PER_PAGE);
+    for (let i = 0; i < tasks.length; i += ITEMS_PER_PAGE) {
+      const chunk = tasks.slice(i, i + ITEMS_PER_PAGE);
       chunks.push(chunk);
     }
     return chunks;
-  }, [allTasks]);
+  }, [tasks]);
 
   const completedTaskLength = useMemo(
-    () => allTasks.filter((task) => task.completed).length,
-    [allTasks]
+    () => tasks.filter((task) => task.completed).length,
+    [tasks]
   );
 
   const updateTask = (pageNumber: number, index: number, task: Task) => {
-    setAllTasks((currentTasks) => {
-      const newTasks = [...currentTasks];
-      newTasks[pageNumber + index] = task;
-      return newTasks;
-    });
+    const newTasks = [...tasks];
+    newTasks[pageNumber + index] = task;
+    setTasks(newTasks);
   };
 
-  const deleteTask = (pageNumber: number, index: number) => {
-    setAllTasks((currentTasks) => {
-      const newTasks = [...currentTasks];
-      newTasks.splice(pageNumber + index, 1);
-      return newTasks;
-    });
+  const deleteTask = async (pageNumber: number, index: number) => {
+    if (!currentUser) return;
+
+    const idx = pageNumber * ITEMS_PER_PAGE + index;
+
+    const newTasks = [...tasks];
+    const targetTask = newTasks.splice(idx, 1)[0];
+    setTasks(newTasks);
   };
 
   const incrementPageNumber = () => {
@@ -205,14 +229,24 @@ export default function TaskList({ tasks }: { tasks: Task[] }) {
                 onUpdate={(task) => updateTask(pageNumber, index, task)}
                 onDelete={() => deleteTask(pageNumber, index)}
                 key={index}
-                task={task}
+                task={{
+                  id: task.id,
+                  name: task.name,
+                  deadline: task.deadline,
+                  category: task.category,
+                  priority: task.priority,
+                  description: task.description,
+                  notes: task.notes,
+                  reminder: task.reminder,
+                  completed: task.completed,
+                }}
               />
             );
           })}
       </table>
       <div className="completed">
         <p>
-          Completed {completedTaskLength} out of {allTasks.length}
+          Completed {completedTaskLength} out of {tasks.length}
         </p>
         <div id="page">
           <ChevronLeft onClick={decrementPageNumber} />

@@ -164,7 +164,7 @@ nav {
     border: none;
     color: inherit;
   }
-  #home-btn {
+  .nav-btn {
     display: flex;
     align-items: center;
     gap: 0.5rem;

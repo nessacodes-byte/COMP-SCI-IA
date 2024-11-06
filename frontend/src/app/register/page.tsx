@@ -9,17 +9,13 @@ import { useRouter } from "next/navigation";
 
 export default function Register() {
   const router = useRouter();
-  const { userLoggedIn } = useAuth();
+  const { userLoggedIn, setCurrentUser } = useAuth();
 
-  const [name, setName] = useState("");
+  const [name, setName] = useState(""); //useState = [name, setName] = Array, SetName is called then name is changed. Usestate triggers a rerender / refresh
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isRegistering, setIsRegistering] = useState(false);
-
-  if (userLoggedIn) {
-    router.push("/");
-  }
 
   const readyToSubmit = useMemo(
     () =>
@@ -35,7 +31,13 @@ export default function Register() {
     e.preventDefault();
     if (!isRegistering) {
       setIsRegistering(true);
-      await doCreateUserWithEmailAndPassword(name, email, password);
+      const user = await doCreateUserWithEmailAndPassword(
+        name,
+        email,
+        password
+      );
+      setCurrentUser(user);
+      router.push("/");
     }
   };
 
@@ -90,7 +92,7 @@ export default function Register() {
               />
             </div>
           </div>
-          <button disabled={!readyToSubmit} type="button">
+          <button onClick={onSubmit} disabled={!readyToSubmit} type="button">
             Sign Up
           </button>
           <p>

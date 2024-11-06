@@ -10,15 +10,11 @@ import { useRouter } from "next/navigation";
 
 export default function Login() {
   const router = useRouter();
-  const { userLoggedIn } = useAuth();
+  const { userLoggedIn, setCurrentUser } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSigningIn, setIsSigningIn] = useState(false);
-
-  if (userLoggedIn) {
-    router.push("/");
-  }
 
   const readyToSubmit = useMemo(() => email && password, [email, password]);
 
@@ -26,7 +22,9 @@ export default function Login() {
     e.preventDefault();
     if (!isSigningIn) {
       setIsSigningIn(true);
-      await doSignInWithEmailAndPassword(email, password);
+      const user = await doSignInWithEmailAndPassword(email, password);
+      setCurrentUser(user);
+      router.push("/");
     }
   };
 

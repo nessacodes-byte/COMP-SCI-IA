@@ -1,22 +1,39 @@
 "use client";
 
-import { categories, priorities, TaskCategory, TaskPriority } from "@/types";
+import {
+  categories,
+  priorities,
+  TaskCategory,
+  TaskPriority,
+  Task,
+} from "@/types";
 import { formatDate } from "@/utils";
 import { Calendar, Clock, Shapes } from "lucide-react";
 import { FormEvent, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import "react-quill/dist/quill.snow.css";
+import { v4 as uuidv4 } from "uuid";
+import { useAuth } from "../authContext";
+import { useRouter } from "next/navigation";
 
-export default function AddTaskForm() {
+export default function AddTaskForm({
+  tasks,
+  setTasks,
+}: {
+  tasks: Task[],
+  setTasks: (tasks: Task[]) => void;
+}) {
+  const { currentUser, setCurrentUser } = useAuth();
   const [title, setTitle] = useState("");
-  const [deadline, setDeadline] = useState<Date>(new Date());
+  const [deadline, setDeadline] = useState<string>(new Date().toISOString());
   const [category, setCategory] = useState<TaskCategory>("Academic");
   const [priority, setPriority] = useState<TaskPriority>("High");
   const [description, setDescription] = useState("");
   const [notes, setNotes] = useState("");
   const [reminder, setReminder] = useState(false);
 
-  const ReactQuill = useMemo( // from this domain, do this -> stores previous value, will not run from the start if same task = will just give previous calculated value
+  const ReactQuill = useMemo(
+    // from this domain, do this -> stores previous value, will not run from the start if same task = will just give previous calculated value
     () => dynamic(() => import("react-quill"), { ssr: false }),
     []
   );
@@ -26,9 +43,33 @@ export default function AddTaskForm() {
     [title, deadline, priority, category]
   );
 
-  const handleOnSubmit = (e: FormEvent) => {
+  const handleOnSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    // TODO: ADD TASKS TO SERVER
+
+    if (!currentUser) return;
+
+    const newTask: Task = {
+      id: uuidv4(), // or use a UUID library
+      name: title,
+      category,
+      priority,
+      deadline,
+      description,
+      notes,
+      reminder,
+      completed: false,
+    };
+
+    setTasks([...tasks, newTask]);
+
+    // Reset form
+    setTitle("");
+    setDeadline(new Date().toISOString());
+    setCategory("Academic");
+    setPriority("High");
+    setDescription("");
+    setNotes("");
+    setReminder(false);
   };
 
   return (
@@ -48,7 +89,7 @@ export default function AddTaskForm() {
         <input
           type="datetime-local"
           value={formatDate(deadline)}
-          onChange={(e) => setDeadline(new Date(e.target.value))}
+          onChange={(e) => setDeadline(new Date(e.target.value).toISOString())}
         />
       </div>
       <div className="task-form-priority">

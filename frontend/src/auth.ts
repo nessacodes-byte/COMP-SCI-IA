@@ -9,7 +9,8 @@ import {
   updateProfile,
 } from "firebase/auth";
 import { doc, setDoc, getDoc } from "firebase/firestore";
-import { User, defaultProfilePicture } from "./types";
+import { User, FirestoreTask, defaultProfilePicture } from "./types";
+import { formatFirestoreTimestamp } from "./utils";
 
 export const doCreateUserWithEmailAndPassword = async (
   name: string,
@@ -53,7 +54,13 @@ export const doSignInWithEmailAndPassword = async (
   );
 
   const userDoc = await getDoc(doc(db, "users", userCredential.user.uid));
-  const userProfile = userDoc.data() as User;
+  const userProfile = userDoc.data() as any;
+
+  // Format deadline of tasks to Date object
+  userProfile.tasks = userProfile.tasks.map((task: FirestoreTask) => ({
+    ...task,
+    deadline: formatFirestoreTimestamp(task.deadline).toISOString(),
+  }));
 
   return userProfile;
 };

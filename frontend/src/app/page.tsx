@@ -4,9 +4,9 @@ import AddTaskForm from "../components/AddTaskForm";
 import Navbar from "../components/Navbar";
 import Sheet from "../components/Sheet";
 import TaskList from "../components/TaskList";
-import { Task } from "../types";
+import { Task, User } from "../types";
 import { Calendar, Download, Filter, List, Plus, Search } from "lucide-react";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   addDoc,
   collection,
@@ -14,24 +14,47 @@ import {
   onSnapshot,
   updateDoc,
 } from "firebase/firestore";
+import { useAuth } from "../authContext";
+import { useRouter } from "next/navigation";
+
+const ITEMS_PER_PAGE = 10;
 
 export default function Home() {
+  const router = useRouter();
+  const { currentUser, setCurrentUser, userLoggedIn, isLoading } = useAuth();
+  // State for the search bar to filter for tasks
   const [searchQuery, setSearchQuery] = useState("");
-  const [isList, setIsList] = useState(true); //use state is a function -> calls setSearchQuery to re-render, if there's change in searchQuery
+  // State to change between list and calendar view
+  const [isList, setIsList] = useState(true);
+  // State to track user tasks
+  const [tasks, setTasks] = useState<Task[]>([]);
 
-  const dummyData: Task[] = [
-    {
-      id: "0",
-      name: "Task Task Task Task Task Task Task Task Task Task",
-      category: "Academic",
-      priority: "High",
-      deadline: new Date(1730290589),
-      description: "",
-      notes: "",
-      reminder: false,
-      completed: false,
-    },
-  ];
+  useEffect(() => {
+    // Redirects user to login if they are not logged in
+    if (!isLoading && (!currentUser || !userLoggedIn)) {
+      router.push("/login");
+    }
+  }, [currentUser, userLoggedIn, isLoading, router]);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    
+    // TODO: Fix
+    if (tasks.length > 0) {
+      setCurrentUser({
+        ...currentUser,
+        tasks,
+      });
+    }
+  }, [tasks]);
+
+  if (isLoading) {
+    return null;
+  }
+
+  if (!isLoading && (!currentUser || !userLoggedIn)) {
+    return null;
+  }
 
   return (
     <>
@@ -104,7 +127,7 @@ export default function Home() {
                     </div>
                   </Sheet.Button>
                   <Sheet.Body>
-                    <AddTaskForm />
+                    <AddTaskForm tasks={tasks} setTasks={setTasks} />
                   </Sheet.Body>
                 </Sheet>
                 <button id="export">
@@ -114,7 +137,9 @@ export default function Home() {
               </div>
             </div>
 
-            <TaskList tasks={dummyData} />
+            {!isLoading && currentUser && (
+              <TaskList tasks={tasks} setTasks={setTasks} />
+            )}
           </>
         ) : (
           <p>Calendar view</p>
