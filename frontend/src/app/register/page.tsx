@@ -2,8 +2,9 @@
 
 import { Flower2 } from "lucide-react";
 import Image from "next/image";
-import React, { useMemo, useState, FormEvent } from "react";
+import { useMemo, useState, FormEvent, useCallback } from "react";
 import { doCreateUserWithEmailAndPassword } from "@/auth";
+import { getFirebaseErrorMessage } from "@/utils";
 import { useAuth } from "@/authContext";
 import { useRouter } from "next/navigation";
 
@@ -11,10 +12,11 @@ export default function Register() {
   const router = useRouter();
   const { userLoggedIn, setCurrentUser } = useAuth();
 
-  const [name, setName] = useState(""); //useState = [name, setName] = Array, SetName is called then name is changed. Usestate triggers a rerender / refresh
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [error, setError] = useState("");
   const [isRegistering, setIsRegistering] = useState(false);
 
   const readyToSubmit = useMemo(
@@ -27,19 +29,37 @@ export default function Register() {
     [name, email, password, confirmPassword]
   );
 
-  const onSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!isRegistering) {
+  const onSubmit = useCallback(
+    async (e: FormEvent) => {
+      e.preventDefault();
+
       setIsRegistering(true);
-      const user = await doCreateUserWithEmailAndPassword(
-        name,
-        email,
-        password
-      );
-      setCurrentUser(user);
-      router.push("/");
-    }
-  };
+      setError("");
+
+      try {
+        const user = await doCreateUserWithEmailAndPassword(
+          name,
+          email,
+          password
+        );
+        await setCurrentUser(user);
+        router.push("/");
+      } catch (error) {
+        setError(getFirebaseErrorMessage(error));
+      } finally {
+        setIsRegistering(false);
+      }
+    },
+    [
+      name,
+      email,
+      password,
+      readyToSubmit,
+      isRegistering,
+      setCurrentUser,
+      router,
+    ]
+  );
 
   return (
     <div className="authentication-sections">
@@ -48,7 +68,7 @@ export default function Register() {
           <Flower2 />
           <p>Assign Me</p>
         </div>
-        <div className="authentication-form">
+        <form className="authentication-form" onSubmit={onSubmit}>
           <h1>Welcome Back</h1>
           <div className="authentication-fields">
             <div className="authentication-field">
@@ -92,13 +112,14 @@ export default function Register() {
               />
             </div>
           </div>
-          <button onClick={onSubmit} disabled={!readyToSubmit} type="button">
-            Sign Up
+          {error && <p className="authentication-error">{error}</p>}
+          <button type="submit" disabled={!readyToSubmit || isRegistering}>
+            {!isRegistering ? "Register an account" : "Loading..."}
           </button>
           <p>
             Already have an account instead? <a href="/login">Login</a>
           </p>
-        </div>
+        </form>
       </div>
       <div className="authentication-section-2">
         <Image src={require("../home_page.jpg")} alt="Home Page Preview" />

@@ -5,17 +5,19 @@ import {
   useContext,
   useState,
   useEffect,
+  useMemo,
   ReactNode,
 } from "react";
-import { User, AuthContextType } from "./types";
+import { User, AuthContextType, Task } from "./types";
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "./firebase";
+import { changeUserInDatabase, doSignOut } from "@/auth";
 
 const AuthContext = createContext<AuthContextType>({
   currentUser: null,
   userLoggedIn: false,
   isLoading: true,
-  setCurrentUser: () => {},
+  setCurrentUser: () => new Promise(() => {}),
   logout: () => {},
 });
 
@@ -31,26 +33,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(false);
   }, []);
 
-  const handleSetUser = (newUser: User | null) => {
-    const changeUserInDb = async (user: User) => {
-      // const userRef = await doc(db, "users", user.id);
-      // await updateDoc(userRef, user);
-      // TODO: Fix
-      console.log(user);
-    };
-
-    if (newUser) {
-      localStorage.setItem("user", JSON.stringify(newUser));
-      changeUserInDb(newUser);
-    } else {
+  const handleSetUser = async (newUser: User | null) => {
+    if (!newUser) {
       localStorage.removeItem("user");
+      setCurrentUser(null);
+      return;
     }
+    localStorage.setItem("user", JSON.stringify(newUser));
     setCurrentUser(newUser);
+    await changeUserInDatabase(newUser);
   };
 
   const logout = () => {
     handleSetUser(null);
-    localStorage.removeItem("user");
+    doSignOut();
   };
 
   return (

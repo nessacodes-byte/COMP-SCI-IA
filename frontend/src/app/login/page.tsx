@@ -3,8 +3,9 @@
 import { Flower2 } from "lucide-react";
 import Image from "next/image";
 import HomePage from "../home_page.jpg";
-import React, { useMemo, useState, FormEvent } from "react";
+import { useMemo, useState, FormEvent, useCallback } from "react";
 import { doSignInWithEmailAndPassword } from "@/auth";
+import { getFirebaseErrorMessage } from "@/utils";
 import { useAuth } from "@/authContext";
 import { useRouter } from "next/navigation";
 
@@ -14,19 +15,27 @@ export default function Login() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
   const [isSigningIn, setIsSigningIn] = useState(false);
 
   const readyToSubmit = useMemo(() => email && password, [email, password]);
 
-  const onSubmit = async (e: FormEvent) => {
+  const onSubmit = useCallback(async (e: FormEvent) => {
     e.preventDefault();
-    if (!isSigningIn) {
-      setIsSigningIn(true);
+    
+    setIsSigningIn(true);
+    setError("");
+
+    try {
       const user = await doSignInWithEmailAndPassword(email, password);
-      setCurrentUser(user);
+      await setCurrentUser(user);
       router.push("/");
+    } catch (error) {
+      setError(getFirebaseErrorMessage(error));
+    } finally {
+      setIsSigningIn(false);
     }
-  };
+  }, [email, password, readyToSubmit, isSigningIn, setCurrentUser, router]);
 
   return (
     <div className="authentication-sections">
@@ -35,7 +44,7 @@ export default function Login() {
           <Flower2 />
           <p>Assign Me</p>
         </div>
-        <div className="authentication-form">
+        <form className="authentication-form" onSubmit={onSubmit}>
           <h1>Create Account</h1>
           <div className="authentication-fields">
             <div className="authentication-field">
@@ -59,13 +68,14 @@ export default function Login() {
               />
             </div>
           </div>
-          <button onClick={onSubmit} disabled={!readyToSubmit} type="button">
-            Login
+          <button type="submit" disabled={!readyToSubmit || isSigningIn}>
+            {!isSigningIn ? "Login" : "Loading..."}
           </button>
+          {error && <p className="authentication-error">{error}</p>}
           <p>
             Don't have an account? <a href="/register">Register</a>
           </p>
-        </div>
+        </form>
       </div>
       <div className="authentication-section-2">
         <Image src={HomePage} alt="Home Page Preview" />

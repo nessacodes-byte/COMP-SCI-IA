@@ -18,12 +18,13 @@ import { useRouter } from "next/navigation";
 
 export default function AddTaskForm({
   tasks,
+  flatTasks,
   setTasks,
 }: {
-  tasks: Task[],
+  tasks: Task[];
+  flatTasks: Task[];
   setTasks: (tasks: Task[]) => void;
 }) {
-  const { currentUser, setCurrentUser } = useAuth();
   const [title, setTitle] = useState("");
   const [deadline, setDeadline] = useState<string>(new Date().toISOString());
   const [category, setCategory] = useState<TaskCategory>("Academic");
@@ -46,10 +47,8 @@ export default function AddTaskForm({
   const handleOnSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
-    if (!currentUser) return;
-
     const newTask: Task = {
-      id: uuidv4(), // or use a UUID library
+      id: uuidv4(),
       name: title,
       category,
       priority,
@@ -60,7 +59,7 @@ export default function AddTaskForm({
       completed: false,
     };
 
-    setTasks([...tasks, newTask]);
+    setTasks([...flatTasks, newTask]);
 
     // Reset form
     setTitle("");

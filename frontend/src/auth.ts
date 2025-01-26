@@ -4,11 +4,15 @@ import {
   signInWithEmailAndPassword,
   sendPasswordResetEmail,
   sendEmailVerification,
+  updateCurrentUser,
+  updateEmail,
   updatePassword,
   signInWithPopup,
   updateProfile,
-} from "firebase/auth";
-import { doc, setDoc, getDoc } from "firebase/firestore";
+  EmailAuthProvider,
+  reauthenticateWithCredential,
+} from "@firebase/auth";
+import { doc, setDoc, getDoc } from "@firebase/firestore";
 import { User, FirestoreTask, defaultProfilePicture } from "./types";
 import { formatFirestoreTimestamp } from "./utils";
 
@@ -17,19 +21,22 @@ export const doCreateUserWithEmailAndPassword = async (
   email: string,
   password: string
 ) => {
+  // Try create account with the email and password
   const userCredential = await createUserWithEmailAndPassword(
     auth,
     email,
     password
   );
-  const user = userCredential.user;
 
+  // Update user profile with name and default profile picture
+  const user = userCredential.user;
   await updateProfile(user, {
     displayName: name,
     photoURL: defaultProfilePicture,
   });
 
-  const userProfile: User = {
+  // Add more fields to the user details in firestore
+  const newUser: User = {
     id: user.uid,
     email,
     name,
@@ -38,51 +45,71 @@ export const doCreateUserWithEmailAndPassword = async (
     tasks: [],
   };
 
-  await setDoc(doc(db, "users", user.uid), userProfile);
+  // Set the information into firestore
+  await changeUserInDatabase(newUser);
 
-  return userProfile;
+  // Set current user with Google Authentication
+  await updateCurrentUser(auth, user);
+
+  return newUser;
 };
 
 export const doSignInWithEmailAndPassword = async (
   email: string,
   password: string
 ) => {
+  // Try signing in the user with email and passwords
   const userCredential = await signInWithEmailAndPassword(
     auth,
     email,
     password
   );
+  const user = userCredential.user;
 
-  const userDoc = await getDoc(doc(db, "users", userCredential.user.uid));
-  const userProfile = userDoc.data() as any;
+  // Get current user details from database
+  const userDoc = await getDoc(doc(db, "users", user.uid));
+  const currentUser = userDoc.data() as User;
 
-  // Format deadline of tasks to Date object
-  userProfile.tasks = userProfile.tasks.map((task: FirestoreTask) => ({
-    ...task,
-    deadline: formatFirestoreTimestamp(task.deadline).toISOString(),
-  }));
+  // Set current user with Google Authentication
+  await updateCurrentUser(auth, user);
 
-  return userProfile;
+  return currentUser;
+};
+
+export const changeUserInDatabase = async (user: User) => {
+  await setDoc(doc(db, "users", user.id), user);
+  if (auth.currentUser) {
+    await updateProfile(auth.currentUser, {
+      displayName: user.name,
+      photoURL: user.profilePicture,
+    });
+  }
 };
 
 export const doSignOut = () => {
   return auth.signOut();
 };
 
-export const doPasswordReset = (email: string) => {
-  return sendPasswordResetEmail(auth, email);
+export const doPasswordChange = async (
+  oldPassword: string,
+  newPassword: string
+) => {
+  const user = auth.currentUser;
+  if (!user || !user.email) return new Promise(() => {});
+
+  // Create credentials with the old password
+  const credential = EmailAuthProvider.credential(user.email, oldPassword);
+
+  // Reauthenticate first
+  await reauthenticateWithCredential(user, credential);
+
+  // If reauthentication succeeds, update to new password
+  return updatePassword(user, newPassword);
 };
 
-export const doPasswordChange = (password: string) => {
+export const doEmailChange = async (email: string) => {
   if (auth.currentUser) {
-    return updatePassword(auth.currentUser, password);
+    return updateEmail(auth.currentUser, email);
   }
-};
-
-export const doSendEmailVerification = () => {
-  if (auth.currentUser) {
-    return sendEmailVerification(auth.currentUser, {
-      url: `${window.location.origin}/`,
-    });
-  }
+  return new Promise(() => {});
 };

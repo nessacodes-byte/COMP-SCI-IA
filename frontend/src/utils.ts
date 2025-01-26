@@ -20,3 +20,7 @@ export const formatFirestoreTimestamp = (date: {
 }) => {
   return new Date((date.seconds + date.nanoseconds * 10 ** -9) * 1000);
 };
+
+export const getFirebaseErrorMessage = (error) => {
+  return error?.code?.replace("auth/", "").replace(/-/g, " ") || "";
+};

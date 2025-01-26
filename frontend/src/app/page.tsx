@@ -4,30 +4,69 @@ import AddTaskForm from "../components/AddTaskForm";
 import Navbar from "../components/Navbar";
 import Sheet from "../components/Sheet";
 import TaskList from "../components/TaskList";
+import EditTaskForm from "../components/EditTaskForm";
 import { Task, User } from "../types";
-import { Calendar, Download, Filter, List, Plus, Search } from "lucide-react";
-import React, { useState, useEffect } from "react";
 import {
-  addDoc,
-  collection,
-  doc,
-  onSnapshot,
-  updateDoc,
-} from "firebase/firestore";
+  Calendar as CalendarIcon,
+  Download,
+  Filter,
+  List,
+  Plus,
+  Search,
+} from "lucide-react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useAuth } from "../authContext";
 import { useRouter } from "next/navigation";
+import { Calendar, dateFnsLocalizer, Navigate } from "react-big-calendar";
+import { format } from "date-fns/format";
+import parse from "date-fns/parse";
+import startOfWeek from "date-fns/startOfWeek";
+import getDay from "date-fns/getDay";
+import enUS from "date-fns/locale/en-US";
+
+import "react-big-calendar/lib/css/react-big-calendar.css";
+
+const locales = {
+  "en-US": enUS,
+};
+
+const localizer = dateFnsLocalizer({
+  format,
+  parse,
+  startOfWeek,
+  getDay,
+  locales,
+});
 
 const ITEMS_PER_PAGE = 10;
 
 export default function Home() {
   const router = useRouter();
   const { currentUser, setCurrentUser, userLoggedIn, isLoading } = useAuth();
-  // State for the search bar to filter for tasks
   const [searchQuery, setSearchQuery] = useState("");
-  // State to change between list and calendar view
-  const [isList, setIsList] = useState(true);
-  // State to track user tasks
-  const [tasks, setTasks] = useState<Task[]>([]);
+  const [calendarDate, setCalendarDate] = useState(new Date());
+  const [isList, setIsList] = useState(false);
+
+  const flatTasks = useMemo(
+    () => (currentUser ? currentUser.tasks : []),
+    [currentUser]
+  );
+
+  const filteredTasks = useMemo(
+    () => flatTasks.filter((task) => task.name.includes(searchQuery)),
+    [flatTasks, searchQuery]
+  );
+
+  const setTasks = useCallback(
+    (tasks: Task[]) => {
+      if (currentUser) {
+        setCurrentUser({ ...currentUser, tasks }).catch((e) =>
+          console.error(e)
+        );
+      }
+    },
+    [currentUser, setCurrentUser]
+  );
 
   useEffect(() => {
     // Redirects user to login if they are not logged in
@@ -36,23 +75,12 @@ export default function Home() {
     }
   }, [currentUser, userLoggedIn, isLoading, router]);
 
-  useEffect(() => {
-    if (!currentUser) return;
-    
-    // TODO: Fix
-    if (tasks.length > 0) {
-      setCurrentUser({
-        ...currentUser,
-        tasks,
-      });
-    }
-  }, [tasks]);
-
   if (isLoading) {
     return null;
   }
 
-  if (!isLoading && (!currentUser || !userLoggedIn)) {
+  if (!currentUser || !userLoggedIn) {
+    router.push("/login");
     return null;
   }
 
@@ -105,7 +133,7 @@ export default function Home() {
             onClick={() => setIsList(false)}
             id="calendar-btn"
           >
-            <Calendar />
+            <CalendarIcon />
             <p>Calendar</p>
           </button>
         </div>
@@ -115,7 +143,7 @@ export default function Home() {
           <>
             <div className="table-header">
               <div id="task-header">
-                <Calendar />
+                <CalendarIcon />
                 <p>Tasks List</p>
               </div>
               <div id="utility-btns">
@@ -127,7 +155,11 @@ export default function Home() {
                     </div>
                   </Sheet.Button>
                   <Sheet.Body>
-                    <AddTaskForm tasks={tasks} setTasks={setTasks} />
+                    <AddTaskForm
+                      tasks={filteredTasks}
+                      flatTasks={flatTasks}
+                      setTasks={setTasks}
+                    />
                   </Sheet.Body>
                 </Sheet>
                 <button id="export">
@@ -138,11 +170,92 @@ export default function Home() {
             </div>
 
             {!isLoading && currentUser && (
-              <TaskList tasks={tasks} setTasks={setTasks} />
+              <TaskList
+                tasks={filteredTasks}
+                flatTasks={flatTasks}
+                setTasks={setTasks}
+              />
             )}
           </>
         ) : (
-          <p>Calendar view</p>
+          <div>
+            <Calendar
+              localizer={localizer}
+              events={flatTasks.map((task) => ({
+                title: `${task.id}.${task.name}`,
+                start: new Date(task.deadline),
+                end: new Date(task.deadline),
+              }))}
+              components={{
+                toolbar: ({ label, localizer: { messages }, onNavigate }) => {
+                  return (
+                    <div className="calendar-toolbar">
+                      <button
+                        type="button"
+                        onClick={() => onNavigate(Navigate.TODAY)}
+                      >
+                        Today
+                      </button>
+                      <p>{label}</p>
+                      <div className="navigation-buttons">
+                        <button
+                          type="button"
+                          onClick={() => onNavigate(Navigate.PREVIOUS)}
+                        >
+                          &#60;
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onNavigate(Navigate.NEXT)}
+                        >
+                          &#62;
+                        </button>
+                      </div>
+                    </div>
+                  );
+                },
+                event: (props) => {
+                  const dotIndex = props.title.indexOf(".");
+                  const taskIndex = flatTasks.findIndex((task) => {
+                    return task.id === props.title.substring(0, dotIndex);
+                  });
+                  return (
+                    taskIndex !== -1 && (
+                      <Sheet>
+                        <Sheet.Button>
+                          <div className="event-block">
+                            <i className="text-wrap">
+                              {props.title.substring(dotIndex + 1)}
+                            </i>
+                          </div>
+                        </Sheet.Button>
+                        <Sheet.Body>
+                          <EditTaskForm
+                            task={flatTasks[taskIndex]}
+                            onUpdate={(newTask) => {
+                              const newTasks = [...flatTasks];
+                              newTasks[taskIndex] = newTask;
+                              setTasks(newTasks);
+                            }}
+                          />
+                        </Sheet.Body>
+                      </Sheet>
+                    )
+                  );
+                },
+              }}
+              date={calendarDate}
+              onNavigate={setCalendarDate}
+              defaultView="month"
+              views={{
+                month: true,
+              }}
+              startAccessor="start"
+              endAccessor="end"
+              popup
+              style={{ height: 500 }}
+            />
+          </div>
         )}
       </main>
     </>

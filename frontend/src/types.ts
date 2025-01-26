@@ -61,7 +61,7 @@ export type AuthContextType = {
   userLoggedIn: boolean;
   currentUser: User | null;
   isLoading: boolean;
-  setCurrentUser: (user: User | null) => void;
+  setCurrentUser: (user: User | null) => Promise<void>;
   logout: () => void;
 };
 
