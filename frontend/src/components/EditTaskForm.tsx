@@ -63,7 +63,7 @@ export default function EditTaskForm({
           onChange={(e) => setCurrentTask((prevTask) => ({ ...prevTask, deadline: new Date(e.target.value).toISOString() }))}
         />
       </div>
-      <div className="task-form-priority">
+      <div className="task-form-category">
         <div>
           <Shapes />
           <p>Category</p>
@@ -82,7 +82,7 @@ export default function EditTaskForm({
           })}
         </select>
       </div>
-      <div className="task-form-category">
+      <div className="task-form-priority">
         <div>
           <Clock />
           <p>Priority</p>

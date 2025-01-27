@@ -5,6 +5,9 @@ import Navbar from "../components/Navbar";
 import Sheet from "../components/Sheet";
 import TaskList from "../components/TaskList";
 import EditTaskForm from "../components/EditTaskForm";
+import FilterTaskForm, {
+  Filter as FilterTaskType,
+} from "../components/FilterTaskForm";
 import { Task, User } from "../types";
 import {
   Calendar as CalendarIcon,
@@ -45,17 +48,57 @@ export default function Home() {
   const { currentUser, setCurrentUser, userLoggedIn, isLoading } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [calendarDate, setCalendarDate] = useState(new Date());
-  const [isList, setIsList] = useState(false);
+  const [isList, setIsList] = useState(true);
+  const [filter, setFilter] = useState<FilterTaskType>({
+    startDate: undefined,
+    endDate: undefined,
+    category: "",
+    priority: "",
+  });
 
   const flatTasks = useMemo(
     () => (currentUser ? currentUser.tasks : []),
     [currentUser]
   );
 
-  const filteredTasks = useMemo(
-    () => flatTasks.filter((task) => task.name.includes(searchQuery)),
-    [flatTasks, searchQuery]
-  );
+  const filteredTasks = useMemo(() => {
+    let newFilteredTasks = [...flatTasks];
+    console.log(filter);
+    // Filter tasks by start date and end date
+    if (filter.startDate && filter.endDate) {
+      newFilteredTasks = newFilteredTasks.filter((task) => {
+        if (!filter.startDate || !filter.endDate) {
+          return false;
+        }
+        const startDate = new Date(filter.startDate).getTime();
+        const endDate = new Date(filter.endDate).getTime();
+        const taskDeadline = new Date(task.deadline).getTime();
+        return startDate <= taskDeadline && taskDeadline <= endDate;
+      });
+    }
+    // Filter tasks by category
+    if (filter.category !== "") {
+      newFilteredTasks = newFilteredTasks.filter(
+        (task) => task.category === filter.category
+      );
+    }
+    // Filter tasks by priority
+    if (filter.priority !== "") {
+      newFilteredTasks = newFilteredTasks.filter(
+        (task) => task.priority === filter.priority
+      );
+    }
+    // Filter tasks by search query
+    return newFilteredTasks.filter((task) => task.name.includes(searchQuery));
+  }, [
+    flatTasks,
+    searchQuery,
+    filter,
+    filter.startDate,
+    filter.endDate,
+    filter.category,
+    filter.priority,
+  ]);
 
   const setTasks = useCallback(
     (tasks: Task[]) => {
@@ -67,6 +110,25 @@ export default function Home() {
     },
     [currentUser, setCurrentUser]
   );
+
+  const downloadTasksAsCsv = useCallback(() => {
+    const csvContent =
+      "data:text/csv;charset=utf-8," +
+      ["Subject", "Start Date", "Start Time", "Description"].join(",") +
+      "\n" +
+      filteredTasks
+        .map((task) =>
+          [
+            task.name,
+            format(task.deadline, "dd/MM/yyyy"),
+            format(task.deadline, "p"),
+            task.description,
+          ].join(",")
+        )
+        .join("\n");
+    const encodedUri = encodeURI(csvContent);
+    window.open(encodedUri);
+  }, [filteredTasks]);
 
   useEffect(() => {
     // Redirects user to login if they are not logged in
@@ -98,10 +160,17 @@ export default function Home() {
             onChange={(e) => setSearchQuery(e.target.value)}
           ></input>
         </label>
-        <button id="filter-btn">
-          <Filter />
-          <p>Filter</p>
-        </button>
+        <Sheet>
+          <Sheet.Button>
+            <button id="filter-btn">
+              <Filter />
+              <p>Filter</p>
+            </button>
+          </Sheet.Button>
+          <Sheet.Body>
+            <FilterTaskForm filter={filter} setFilter={setFilter} />
+          </Sheet.Body>
+        </Sheet>
         <div className="search-btns">
           <button
             style={
@@ -128,7 +197,7 @@ export default function Home() {
                     border: "1px solid var(--primary-shadow-color)",
                     background: "var(--primary-shadow-color)",
                   }
-                : { background: "none", border: "1px solid var(--foreground)" }
+                : { background: "none", border: "1px solid rgb(from var(--foreground) r g b / 50%)" }
             }
             onClick={() => setIsList(false)}
             id="calendar-btn"
@@ -144,7 +213,7 @@ export default function Home() {
             <div className="table-header">
               <div id="task-header">
                 <CalendarIcon />
-                <p>Tasks List</p>
+                <p><b>Tasks List</b></p>
               </div>
               <div id="utility-btns">
                 <Sheet>
@@ -162,7 +231,7 @@ export default function Home() {
                     />
                   </Sheet.Body>
                 </Sheet>
-                <button id="export">
+                <button id="export" onClick={downloadTasksAsCsv}>
                   <Download />
                   <p>Export</p>
                 </button>
